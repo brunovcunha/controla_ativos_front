@@ -1,7 +1,7 @@
 // Resource definitions mirroring backend modules (asset, department, employee, loan, location, maintenance).
 export type ResourceKey = "assets" | "departments" | "employees" | "loans" | "locations" | "maintenances";
 
-export type FieldType = "text" | "number" | "date" | "email" | "select" | "ref" | "textarea" | "phone";
+export type FieldType = "text" | "number" | "date" | "datetime-local" | "email" | "select" | "ref" | "textarea" | "phone";
 
 export interface Field {
   name: string;
@@ -12,6 +12,8 @@ export interface Field {
   ref?: ResourceKey;
   refLabel?: string;
   inTable?: boolean;
+  hideInForm?: boolean;    // Não envia no POST
+  searchable?: boolean;
   badge?: boolean;
   mono?: boolean;
   currency?: boolean;
@@ -31,6 +33,12 @@ export interface ResourceDef {
 const opt = (...v: [string, string][]) => v.map(([value, label]) => ({ value, label }));
 
 export const STATUS_TONE: Record<string, "success" | "warning" | "info" | "destructive" | "muted"> = {
+  SCHEDULED: "info",
+  PENDING_PICKUP: "warning",
+  IN_USE: "info",
+  RETURNED: "success",
+  CANCELLED: "muted",
+  OVERDUE: "destructive",
   DISPONIVEL: "success",
   EM_USO: "info",
   MANUTENCAO: "warning",
@@ -103,23 +111,40 @@ export const resources: Record<ResourceKey, ResourceDef> = {
     ],
   },
   loans: {
-    key: "loans",
-    endpoint: "loans",
-    title: "Empréstimos",
-    singular: "Empréstimo",
-    description: "Cessão de ativos para colaboradores.",
-    updateMethod: "PATCH",
-    searchKeys: [],
-    fields: [
-      { name: "assetId", label: "Ativo", type: "ref", ref: "assets", refLabel: "name", required: true, inTable: true },
-      { name: "employeeId", label: "Colaborador", type: "ref", ref: "employees", refLabel: "name", required: true, inTable: true },
-      { name: "loanDate", label: "Data de saída", type: "date", required: true, inTable: true },
-      { name: "expectedReturnDate", label: "Devolução prevista", type: "date", inTable: true },
-      { name: "returnDate", label: "Devolvido em", type: "date" },
-      { name: "status", label: "Status", type: "select", required: true, inTable: true, badge: true, options: opt(["ATIVO", "Ativo"], ["DEVOLVIDO", "Devolvido"], ["ATRASADO", "Atrasado"]) },
-      { name: "notes", label: "Observações", type: "textarea" },
-    ],
-  },
+  key: "loans",
+  endpoint: "loans",
+  title: "Empréstimos",
+  singular: "Empréstimo",
+  description: "Cessão e controle de ciclo de vida de ativos de TI.",
+  searchKeys: ["assetTag", "assetName", "purpose"],
+  updateMethod: "PATCH",
+  fields: [
+    { name: "assetId", label: "Ativo", type: "ref", ref: "assets", refLabel: "name", required: true, searchable: true, inTable: true },
+    { name: "employeeId", label: "Colaborador", type: "ref", ref: "employees", refLabel: "name", required: true, searchable: true, inTable: true },
+    { name: "scheduledStart", label: "Início Previsto", type: "datetime-local", required: true, inTable: true },
+    { name: "scheduledEnd", label: "Término Previsto", type: "datetime-local", required: true, inTable: true },
+    { name: "pickupAt", label: "Retirado em", type: "datetime-local", inTable: true, hideInForm: true },
+    { name: "returnedAt", label: "Devolvido em", type: "datetime-local", inTable: true, hideInForm: true },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      inTable: true,
+      badge: true,
+      hideInForm: true, // Controlado pelas transições da API
+      options: opt(
+        ["SCHEDULED", "Agendado"],
+        ["PENDING_PICKUP", "Aguardando Retirada"],
+        ["IN_USE", "Em Uso"],
+        ["RETURNED", "Devolvido"],
+        ["CANCELLED", "Cancelado"],
+        ["OVERDUE", "Atrasado"]
+      ),
+    },
+    { name: "purpose", label: "Finalidade / Motivo", type: "text" },
+    { name: "notes", label: "Observações", type: "textarea" },
+  ],
+},
   locations: {
     key: "locations",
     endpoint: "locations",

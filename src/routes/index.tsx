@@ -25,7 +25,7 @@ function Dashboard() {
   const res = useQueries({ queries: keys.map(listQuery) });
   const [assets, loans, maints, emps] = keys.map((_, i) => res[i]?.data ?? []) as [Row[], Row[], Row[], Row[]];
   const statusField = resources.assets.fields.find((f) => f.name === "status")!;
-  const total = assets.reduce((s, a) => s + (Number(a["value"]) || 0), 0);
+  const total = assets.reduce((s, a) => s + (Number(a["assetValue"]) || 0), 0);
   const activeLoans = loans.filter((l) => l["status"] !== "DEVOLVIDO");
   const late = loans.filter((l) => l["status"] === "ATRASADO");
   const openMaint = maints.filter((m) => m["status"] !== "CONCLUIDA");

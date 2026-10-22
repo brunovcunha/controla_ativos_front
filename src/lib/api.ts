@@ -68,4 +68,38 @@ export const api = {
     }
     await http<void>(`${resources[k].endpoint}/${id}`, { method: "DELETE" });
   },
+
+// Regras excluisivas de Loan
+   async loanPickup(id: Row["id"]): Promise<void> {
+    if (usingMock) {
+      const rows = readMock("loans").map((r) =>
+        r.id === id ? { ...r, status: "IN_USE", pickupAt: new Date().toISOString() } : r
+      );
+      writeMock("loans", rows);
+      return;
+    }
+    await http<void>(`loans/${id}/pickup`, { method: "POST" });
+  },
+
+  async loanReturn(id: Row["id"]): Promise<void> {
+    if (usingMock) {
+      const rows = readMock("loans").map((r) =>
+        r.id === id ? { ...r, status: "RETURNED", returnedAt: new Date().toISOString() } : r
+      );
+      writeMock("loans", rows);
+      return;
+    }
+    await http<void>(`loans/${id}/return`, { method: "POST" });
+  },
+
+  async loanCancel(id: Row["id"]): Promise<void> {
+    if (usingMock) {
+      const rows = readMock("loans").map((r) =>
+        r.id === id ? { ...r, status: "CANCELLED" } : r
+      );
+      writeMock("loans", rows);
+      return;
+    }
+    await http<void>(`loans/${id}/cancel`, { method: "POST" });
+  },
 };

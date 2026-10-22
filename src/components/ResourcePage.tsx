@@ -16,6 +16,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { StatusBadge } from "./StatusBadge";
+import { SearchableSelect } from "./SearchableSelect";
 
 export const listQuery = (k: ResourceKey) => ({ queryKey: [k], queryFn: () => api.list(k) });
 
@@ -37,6 +38,7 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
   const [editing, setEditing] = useState<Row | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<Row | null>(null);
   const [page, setPage] = useState(1);
+
 
   const pageSize = 10;
 
@@ -98,6 +100,7 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
   });
 
   return (
+
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -136,19 +139,77 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
             {!isLoading && !error && filtered.length === 0 && (
               <TableRow><TableCell colSpan={cols.length + 1} className="py-10 text-center text-muted-foreground">Nenhum registro encontrado.</TableCell></TableRow>
             )}
-            {paginatedData.map((row) => (
-              <TableRow key={row.id}>
-                {cols.map((c) => (
-                  <TableCell key={c.name} className={c.mono ? "font-mono text-xs" : "max-w-xs truncate"}>
-                    {c.badge ? <StatusBadge value={String(row[c.name])} label={display(c, row)} /> : display(c, row)}
+
+            {paginatedData.map((row) => {
+
+              const status = String(row["status"] ?? "");
+
+              const canPickup = status === "SCHEDULED" || status === "PENDING_PICKUP";
+              const canReturn = status === "IN_USE";
+              const canCancel = status === "SCHEDULED" || status === "PENDING_PICKUP";
+
+
+              return (
+                <TableRow key={row.id}>
+                  {cols.map((c) => (
+                    <TableCell key={c.name} className={c.mono ? "font-mono text-xs" : "max-w-xs truncate"}>
+                      {c.badge ? <StatusBadge value={String(row[c.name])} label={display(c, row)} /> : display(c, row)}
+                    </TableCell>
+                  ))}
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      {resource === "loans" && (
+                        <div className="flex items-center gap-1 mr-2">
+                          {canPickup && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs"
+                              onClick={() => api.loanPickup(row.id).then(() => qc.invalidateQueries({ queryKey: ["loans"] }))}
+                            >
+                              Retirar
+                            </Button>
+                          )}
+                          {canReturn && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="h-8 text-xs"
+                              onClick={() => api.loanReturn(row.id).then(() => qc.invalidateQueries({ queryKey: ["loans"] }))}
+                            >
+                              Devolver
+                            </Button>
+                          )}
+                          {canCancel && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 text-xs text-destructive hover:text-destructive"
+                              onClick={() => api.loanCancel(row.id).then(() => qc.invalidateQueries({ queryKey: ["loans"] }))}
+                            >
+                              Cancelar
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => setEditing(row)}>
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Excluir"
+                        onClick={() => setDeleting(row)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
                   </TableCell>
-                ))}
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => setEditing(row)}><Pencil /></Button>
-                  <Button variant="ghost" size="icon" aria-label="Excluir" onClick={() => setDeleting(row)} className="text-destructive hover:text-destructive"><Trash2 /></Button>
-                </TableCell>
-              </TableRow>
-            ))}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
 
@@ -251,13 +312,23 @@ function ResourceForm({ fields, initial, refData, pending, onSubmit, onCancel }:
   });
   const set = (k: string, v: unknown) => setValues((s) => ({ ...s, [k]: v }));
 
+  const formFields = fields.filter((f) => !f.hideInForm);
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const body: Record<string, unknown> = {};
-    for (const f of fields) {
+    for (const f of formFields) {
       const v = values[f.name];
-      if (f.required && (v === "" || v == null)) { toast.error(`Preencha "${f.label}"`); return; }
-      body[f.name] = v === "" ? null : f.type === "number" || f.type === "ref" ? Number(v) : v;
+      if (f.required && (v === "" || v == null)) {
+        toast.error(`Preencha "${f.label}"`);
+        return;
+      }
+      // Converte datas para ISO 8601 se preenchido
+      if (f.type === "datetime-local" && v) {
+        body[f.name] = new Date(String(v)).toISOString();
+      } else {
+        body[f.name] = v === "" ? null : f.type === "number" || f.type === "ref" ? Number(v) : v;
+      }
     }
     onSubmit(body);
   };
@@ -271,15 +342,19 @@ function ResourceForm({ fields, initial, refData, pending, onSubmit, onCancel }:
             {f.type === "textarea" ? (
               <Textarea id={f.name} value={String(values[f.name] ?? "")} onChange={(e) => set(f.name, e.target.value)} />
             ) : f.type === "select" || f.type === "ref" ? (
-              <Select value={values[f.name] == null ? "" : String(values[f.name])} onValueChange={(v) => set(f.name, v)}>
-                <SelectTrigger id={f.name} className="w-full"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {(f.type === "select"
+              <SearchableSelect
+                value={values[f.name] == null ? "" : String(values[f.name])}
+                onChange={(v) => set(f.name, v)}
+                placeholder={`Selecione ${f.label.toLowerCase()}...`}
+                options={
+                  f.type === "select"
                     ? f.options ?? []
-                    : (refData[f.ref!] ?? []).map((r) => ({ value: String(r.id), label: String(r[f.refLabel ?? "name"]) }))
-                  ).map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
+                    : (refData[f.ref!] ?? []).map((r) => ({
+                      value: String(r.id),
+                      label: String(r[f.refLabel ?? "name"]),
+                    }))
+                }
+              />
             ) : (
               <Input
                 id={f.name}
