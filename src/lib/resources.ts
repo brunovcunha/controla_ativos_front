@@ -65,7 +65,7 @@ export const resources: Record<ResourceKey, ResourceDef> = {
     fields: [
       { name: "assetTag", label: "Patrimônio", type: "text", required: true, inTable: true, mono: true },
       { name: "name", label: "Nome", type: "text", required: true, inTable: true },
-      { name: "type", label: "Categoria", type: "select", inTable: true, options: opt(["NOTEBOOK", "Notebook"], ["DESKTOP", "Desktop"], ["MONITOR", "Monitor"], ["PHONE", "Smartphone/telefone"], ["TABLET", "Tablet"], ["PRINTER", "Impressora"], ["SWITCH", "Rede"],["SERVER", "Servidor"], ["OTHER", "Outro"]) },
+      { name: "type", label: "Categoria", type: "select", inTable: true, options: opt(["NOTEBOOK", "Notebook"], ["DESKTOP", "Desktop"], ["MONITOR", "Monitor"], ["PHONE", "Smartphone/telefone"], ["TABLET", "Tablet"], ["PRINTER", "Impressora"], ["SWITCH", "Rede"],["SERVER", "Servidor"], ["ROUTER", "Roteador"], ["OTHER", "Outro"]) },
       { name: "brand", label: "Marca", type: "text" },
       { name: "model", label: "Modelo", type: "text" },
       { name: "serialNumber", label: "Nº de série", type: "text", mono: true },

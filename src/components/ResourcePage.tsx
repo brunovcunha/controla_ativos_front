@@ -29,6 +29,8 @@ function useRefMaps(fields: Field[]) {
   return Object.fromEntries(refs.map((r, i) => [r, results[i]?.data ?? []])) as Record<ResourceKey, Row[]>;
 }
 
+SelectContent
+
 export function ResourcePage({ resource }: { resource: ResourceKey }) {
   const def = resources[resource];
   const qc = useQueryClient();
@@ -38,7 +40,6 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
   const [editing, setEditing] = useState<Row | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<Row | null>(null);
   const [page, setPage] = useState(1);
-
 
   const pageSize = 10;
 
@@ -305,6 +306,28 @@ function ResourceForm({ fields, initial, refData, pending, onSubmit, onCancel }:
   fields: Field[]; initial: Row | null; refData: Record<string, Row[]>; pending: boolean;
   onSubmit: (b: Record<string, unknown>) => void; onCancel: () => void;
 }) {
+
+  // Monta as opções de campos 'ref', filtrando ativos disponíveis em novos cadastros
+  const getRefOptions = (f: Field) => {
+    let list = refData[f.ref!] ?? [];
+
+    // Se for referência para ativos e for novo cadastro (!initial)
+    if (f.ref === "assets" && !initial) {
+      list = list.filter((item) => {
+        const status = String(item["status"] ?? "").toUpperCase();
+        return status === "AVAILABLE" || status === "DISPONIVEL";
+      });
+    }
+
+    return list.map((r) => ({
+      value: String(r.id),
+      // Exibe "TAG - Nome" se houver patrimônio, facilitando a identificação
+      label: r["tag"]
+        ? `${String(r["tag"])} - ${String(r[f.refLabel ?? "name"])}`
+        : String(r[f.refLabel ?? "name"]),
+    }));
+  };
+
   const [values, setValues] = useState<Record<string, unknown>>(() => {
     const v: Record<string, unknown> = {};
     fields.forEach((f) => (v[f.name] = initial?.[f.name] ?? ""));
@@ -345,17 +368,11 @@ function ResourceForm({ fields, initial, refData, pending, onSubmit, onCancel }:
               <SearchableSelect
                 value={values[f.name] == null ? "" : String(values[f.name])}
                 onChange={(v) => set(f.name, v)}
-                placeholder={`Selecione ${f.label.toLowerCase()}...`}
-                options={
-                  f.type === "select"
-                    ? f.options ?? []
-                    : (refData[f.ref!] ?? []).map((r) => ({
-                      value: String(r.id),
-                      label: String(r[f.refLabel ?? "name"]),
-                    }))
-                }
+                placeholder="Selecione"
+                options={f.type === "select" ? (f.options ?? []) : getRefOptions(f)}
               />
             ) : (
+
               <Input
                 id={f.name}
                 type={f.type === "phone" ? "tel" : f.type}
