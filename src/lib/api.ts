@@ -8,19 +8,59 @@ export type Row = Record<string, unknown> & { id: number | string };
 const BASE = (import.meta.env["VITE_API_URL"] as string | undefined)?.replace(/\/$/, "");
 export const usingMock = !BASE;
 
+// Classe personalizada para carregar status e dados do erro
+export class ApiError extends Error {
+  status: number;
+  data: unknown;
+
+  constructor(status: number, message: string, data?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}/${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
-  if (!res.ok) throw new Error(`Erro ${res.status}: ${await res.text()}`);
+
+  // Se a resposta não for 2xx, extrai a mensagem enviada pelo Java/Spring Boot
+  if (!res.ok) {
+    let message = `Erro ${res.status}`;
+    let errorData: unknown = null;
+
+    try {
+      const text = await res.text();
+      if (text) {
+        errorData = JSON.parse(text);
+        if (typeof errorData === "object" && errorData !== null) {
+          const body = errorData as Record<string, unknown>;
+          // Pega campos comuns do Spring Boot (message, detail do RFC 7807, ou error)
+          message =
+            (body["message"] as string) ||
+            (body["detail"] as string) ||
+            (body["error"] as string) ||
+            text;
+        } else {
+          message = text;
+        }
+      }
+    } catch {
+    }
+
+    throw new ApiError(res.status, message, errorData);
+  }
+
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   if (!text) return undefined as T;
   const data = JSON.parse(text);
-  // Support Spring Page responses
   return (data && Array.isArray(data.content) ? data.content : data) as T;
 }
+
 
 const storeKey = (k: ResourceKey) => `ativos:${k}`;
 function readMock(k: ResourceKey): Row[] {
@@ -69,8 +109,8 @@ export const api = {
     await http<void>(`${resources[k].endpoint}/${id}`, { method: "DELETE" });
   },
 
-// Regras excluisivas de Loan
-   async loanPickup(id: Row["id"]): Promise<void> {
+  // Regras excluisivas de Loan
+  async loanPickup(id: Row["id"]): Promise<void> {
     if (usingMock) {
       const rows = readMock("loans").map((r) =>
         r.id === id ? { ...r, status: "IN_USE", pickupAt: new Date().toISOString() } : r
