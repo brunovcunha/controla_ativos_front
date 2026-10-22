@@ -8,11 +8,11 @@ import { usingMock } from "@/lib/api";
 
 const main = [{ title: "Dashboard", url: "/", icon: LayoutDashboard }] as const;
 const ops = [
-  { title: "Ativos", url: "/ativos", icon: Laptop },
   { title: "Empréstimos", url: "/emprestimos", icon: ArrowLeftRight },
   { title: "Manutenções", url: "/manutencoes", icon: Wrench },
 ] as const;
 const cad = [
+  { title: "Ativos", url: "/ativos", icon: Laptop },
   { title: "Colaboradores", url: "/colaboradores", icon: Users },
   { title: "Departamentos", url: "/departamentos", icon: Building2 },
   { title: "Localizações", url: "/localizacoes", icon: MapPin },

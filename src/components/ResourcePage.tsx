@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +36,9 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Row | null | undefined>(undefined);
   const [deleting, setDeleting] = useState<Row | null>(null);
+  const [page, setPage] = useState(1);
+
+  const pageSize = 10;
 
   const cols = def.fields.filter((f) => f.inTable);
 
@@ -57,6 +60,21 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
     return data.filter((row) => cols.some((f) => display(f, row).toLowerCase().includes(s)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, q, refData]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, data.length]);
+
+
+
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+
+  const paginatedData = filtered.slice(
+    (page - 1) * pageSize,
+    page * pageSize
+  );
+
 
   const save = useMutation({
     mutationFn: async (body: Record<string, unknown>) =>
@@ -118,7 +136,7 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
             {!isLoading && !error && filtered.length === 0 && (
               <TableRow><TableCell colSpan={cols.length + 1} className="py-10 text-center text-muted-foreground">Nenhum registro encontrado.</TableCell></TableRow>
             )}
-            {filtered.map((row) => (
+            {paginatedData.map((row) => (
               <TableRow key={row.id}>
                 {cols.map((c) => (
                   <TableCell key={c.name} className={c.mono ? "font-mono text-xs" : "max-w-xs truncate"}>
@@ -133,6 +151,41 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
             ))}
           </TableBody>
         </Table>
+
+        <div className="flex items-center justify-between gap-4 py-4">
+          <span className="text-sm text-muted-foreground">
+            {filtered.length === 0
+              ? "Nenhum registro"
+              : `Mostrando ${(page - 1) * pageSize + 1}–${Math.min(
+                page * pageSize,
+                filtered.length
+              )} de ${filtered.length} registros`}
+          </span>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              Anterior
+            </Button>
+
+            <span className="flex items-center px-2 text-sm">
+              Página {page} de {Math.max(totalPages, 1)}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages || totalPages === 0}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Próxima
+            </Button>
+          </div>
+        </div>
       </div>
 
       <Dialog open={editing !== undefined} onOpenChange={(o) => !o && setEditing(undefined)}>
@@ -161,6 +214,30 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
       </AlertDialog>
     </div>
   );
+}
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+
+  if (digits.length === 0) return "";
+  if (digits.length <= 2) return `(${digits}`;
+
+  const ddd = digits.slice(0, 2);
+  const number = digits.slice(2);
+
+  if (digits.length <= 10) {
+    if (number.length <= 4) {
+      return `(${ddd}) ${number}`;
+    }
+
+    return `(${ddd}) ${number.slice(0, 4)}-${number.slice(4)}`;
+  }
+
+  if (number.length <= 5) {
+    return `(${ddd}) ${number}`;
+  }
+
+  return `(${ddd}) ${number.slice(0, 5)}-${number.slice(5)}`;
 }
 
 function ResourceForm({ fields, initial, refData, pending, onSubmit, onCancel }: {
@@ -204,7 +281,24 @@ function ResourceForm({ fields, initial, refData, pending, onSubmit, onCancel }:
                 </SelectContent>
               </Select>
             ) : (
-              <Input id={f.name} type={f.type} step={f.currency ? "0.01" : undefined} value={String(values[f.name] ?? "")} onChange={(e) => set(f.name, e.target.value)} />
+              <Input
+                id={f.name}
+                type={f.type === "phone" ? "tel" : f.type}
+                step={f.currency ? "0.01" : undefined}
+                value={
+                  f.type === "phone"
+                    ? formatPhone(String(values[f.name] ?? ""))
+                    : String(values[f.name] ?? "")
+                }
+                onChange={(e) =>
+                  set(
+                    f.name,
+                    f.type === "phone"
+                      ? formatPhone(e.target.value)
+                      : e.target.value
+                  )
+                }
+              />
             )}
           </div>
         ))}

@@ -1,7 +1,7 @@
 // Resource definitions mirroring backend modules (asset, department, employee, loan, location, maintenance).
 export type ResourceKey = "assets" | "departments" | "employees" | "loans" | "locations" | "maintenances";
 
-export type FieldType = "text" | "number" | "date" | "email" | "select" | "ref" | "textarea";
+export type FieldType = "text" | "number" | "date" | "email" | "select" | "ref" | "textarea" | "phone";
 
 export interface Field {
   name: string;
@@ -53,17 +53,19 @@ export const resources: Record<ResourceKey, ResourceDef> = {
     singular: "Ativo",
     description: "Inventário de equipamentos e patrimônio de TI.",
     searchKeys: ["tag", "name", "serialNumber", "brand"],
+    updateMethod: "PATCH",
     fields: [
-      { name: "tag", label: "Patrimônio", type: "text", required: true, inTable: true, mono: true },
+      { name: "assetTag", label: "Patrimônio", type: "text", required: true, inTable: true, mono: true },
       { name: "name", label: "Nome", type: "text", required: true, inTable: true },
-      { name: "category", label: "Categoria", type: "select", inTable: true, options: opt(["NOTEBOOK", "Notebook"], ["DESKTOP", "Desktop"], ["MONITOR", "Monitor"], ["SMARTPHONE", "Smartphone"], ["IMPRESSORA", "Impressora"], ["REDE", "Rede"], ["OUTRO", "Outro"]) },
+      { name: "type", label: "Categoria", type: "select", inTable: true, options: opt(["NOTEBOOK", "Notebook"], ["DESKTOP", "Desktop"], ["MONITOR", "Monitor"], ["PHONE", "Smartphone/telefone"], ["TABLET", "Tablet"], ["PRINTER", "Impressora"], ["SWITCH", "Rede"],["SERVER", "Servidor"], ["OTHER", "Outro"]) },
       { name: "brand", label: "Marca", type: "text" },
       { name: "model", label: "Modelo", type: "text" },
       { name: "serialNumber", label: "Nº de série", type: "text", mono: true },
-      { name: "status", label: "Status", type: "select", required: true, inTable: true, badge: true, options: opt(["DISPONIVEL", "Disponível"], ["EM_USO", "Em uso"], ["MANUTENCAO", "Manutenção"], ["BAIXADO", "Baixado"]) },
-      { name: "locationId", label: "Localização", type: "ref", ref: "locations", refLabel: "name", inTable: true },
+      { name: "status", label: "Status", type: "select", required: true, inTable: true, badge: true, options: opt(["AVAILABLE", "Disponível"], ["IN_USE", "Em uso"], ["MAINTENANCE", "Manutenção"], ["STORED", "Em Estoque"], ["DISCARDED", "Descartado"]) },
       { name: "purchaseDate", label: "Data de compra", type: "date" },
-      { name: "value", label: "Valor (R$)", type: "number", currency: true, inTable: true },
+      { name: "locationId", label: "Localização", type: "ref", ref: "locations", refLabel: "name", inTable: true },
+      { name: "assetValue", label: "Valor (R$)", type: "number", currency: true, inTable: true },
+      { name: "notes", label: "Observações", type: "textarea", currency: true, inTable: true }
     ],
   },
   departments: {
@@ -73,10 +75,12 @@ export const resources: Record<ResourceKey, ResourceDef> = {
     singular: "Departamento",
     description: "Áreas e centros de custo da organização.",
     searchKeys: ["name", "costCenter"],
+    updateMethod: "PATCH",
     fields: [
       { name: "name", label: "Nome", type: "text", required: true, inTable: true },
-      { name: "costCenter", label: "Centro de custo", type: "text", inTable: true, mono: true },
-      { name: "manager", label: "Gestor", type: "text", inTable: true },
+      { name: "code", label: "Código", type: "text", inTable: true, mono: true },
+      { name: "description", label: "Descrição", type: "text", inTable: true },
+      { name: "active", label: "Ativo", type: "select", inTable: true, badge: true, options: opt(["true", "Sim"], ["false", "Não"])}
     ],
   },
   employees: {
@@ -86,12 +90,16 @@ export const resources: Record<ResourceKey, ResourceDef> = {
     singular: "Colaborador",
     description: "Pessoas que podem receber ativos.",
     searchKeys: ["name", "email", "registration"],
+    updateMethod: "PATCH",
     fields: [
       { name: "registration", label: "Matrícula", type: "text", required: true, inTable: true, mono: true },
       { name: "name", label: "Nome", type: "text", required: true, inTable: true },
       { name: "email", label: "E-mail", type: "email", inTable: true },
-      { name: "position", label: "Cargo", type: "text", inTable: true },
+      { name: "phone", label: "Telefone", type: "phone", inTable: true },
+      { name: "jobTitle", label: "Cargo", type: "text", inTable: true },
+      { name: "status", label: "Status", type: "select", inTable: true, badge: true, options: opt(["ACTIVE", "Ativo"], ["INACTIVE", "Inativo"])},
       { name: "departmentId", label: "Departamento", type: "ref", ref: "departments", refLabel: "name", inTable: true },
+      { name: "notes", label: "Observações", type: "textarea", inTable: true}
     ],
   },
   loans: {
@@ -100,6 +108,7 @@ export const resources: Record<ResourceKey, ResourceDef> = {
     title: "Empréstimos",
     singular: "Empréstimo",
     description: "Cessão de ativos para colaboradores.",
+    updateMethod: "PATCH",
     searchKeys: [],
     fields: [
       { name: "assetId", label: "Ativo", type: "ref", ref: "assets", refLabel: "name", required: true, inTable: true },
