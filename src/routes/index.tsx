@@ -26,8 +26,8 @@ function Dashboard() {
   const [assets, loans, maints, emps] = keys.map((_, i) => res[i]?.data ?? []) as [Row[], Row[], Row[], Row[]];
   const statusField = resources.assets.fields.find((f) => f.name === "status")!;
   const total = assets.reduce((s, a) => s + (Number(a["assetValue"]) || 0), 0);
-  const activeLoans = loans.filter((l) => l["status"] !== "DEVOLVIDO");
-  const late = loans.filter((l) => l["status"] === "ATRASADO");
+  const activeLoans = loans.filter((l) => String(l["status"]) === "SCHEDULED");
+  const late = loans.filter((l) => String(l["status"]) === "OVERDUE");
   const openMaint = maints.filter((m) => m["status"] !== "CONCLUIDA");
   const name = (rows: typeof assets, id: unknown) => String(rows.find((r) => String(r.id) === String(id))?.["name"] ?? "—");
 
@@ -77,13 +77,13 @@ function Dashboard() {
 
         <section className="rounded-xl border bg-card p-5 shadow-card lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Empréstimos em aberto</h2>
+            <h2 className="font-semibold">Empréstimos agendados</h2>
             {late.length > 0 && (
               <span className="inline-flex items-center gap-1 text-xs text-destructive"><AlertTriangle className="size-3.5" />{late.length} atrasado(s)</span>
             )}
           </div>
           <ul className="mt-3 divide-y">
-            {activeLoans.length === 0 && <li className="py-6 text-center text-sm text-muted-foreground">Nenhum empréstimo em aberto.</li>}
+            {activeLoans.length === 0 && <li className="py-6 text-center text-sm text-muted-foreground">Nenhum empréstimo agendado.</li>}
             {activeLoans.slice(0, 6).map((l) => (
               <li key={l.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                 <div className="min-w-0">

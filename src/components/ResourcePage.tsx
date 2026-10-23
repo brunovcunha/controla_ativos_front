@@ -34,7 +34,22 @@ SelectContent
 export function ResourcePage({ resource }: { resource: ResourceKey }) {
   const def = resources[resource];
   const qc = useQueryClient();
-  const { data = [], isLoading, error } = useQuery(listQuery(resource));
+  const [statusFilter, setStatusFilter] = useState("");
+
+  // filtragem para loans
+  const statusField = resource === "loans"
+    ? resources.loans.fields.find((f) => f.name === "status")
+    : undefined;
+
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: [resource, statusFilter],
+    queryFn: () =>
+      resource === "loans" && statusFilter && statusFilter !== "all"
+        ? api.listByStatus("loans", statusFilter)
+        : api.list(resource),
+
+  });
+
   const refData = useRefMaps(def.fields);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState<Row | null | undefined>(undefined);
@@ -67,9 +82,6 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
   useEffect(() => {
     setPage(1);
   }, [q, data.length]);
-
-
-
 
   const totalPages = Math.ceil(filtered.length / pageSize);
 
@@ -119,6 +131,19 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar..." className="pl-8" />
           </div>
+          {statusField && (
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-44 shrink-0">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                {statusField.options?.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <span className="shrink-0 text-xs text-muted-foreground">{filtered.length} registro(s)</span>
         </div>
         <Table>
@@ -144,10 +169,15 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
             {paginatedData.map((row) => {
 
               const status = String(row["status"] ?? "");
-
+              //            Validações para loans
               const canPickup = status === "SCHEDULED" || status === "PENDING_PICKUP";
               const canReturn = status === "IN_USE";
               const canCancel = status === "SCHEDULED" || status === "PENDING_PICKUP";
+
+              //            Validações para maintenances              
+              const canStart = status === "SCHEDULED";
+              const canComplete = status === "IN_PROGRESS";
+              const canCancelMaintenance = status === "SCHEDULED" || status === "IN_PROGRESS";
 
 
               return (
@@ -193,6 +223,44 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
                           )}
                         </div>
                       )}
+
+                      {/*BOTÕES PARA MANUTENÇÃO*/}
+                      {resource === "maintenances" && (
+                        <div className="flex items-center gap-1 mr-2">
+                          {canStart && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs"
+                              onClick={() => api.starMaintenance(row.id).then(() => qc.invalidateQueries({ queryKey: ["maintenances"] }))}
+                            >
+                              Iniciar
+                            </Button>
+                          )}
+                          {canComplete && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="h-8 text-xs"
+                              onClick={() => api.maintenanceComplete(row.id).then(() => qc.invalidateQueries({ queryKey: ["maintenances"] }))}
+                            >
+                              Finalizar
+                            </Button>
+                          )}
+                          {canCancelMaintenance && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 text-xs text-destructive hover:text-destructive"
+                              onClick={() => api.mainteNanceCancel(row.id).then(() => qc.invalidateQueries({ queryKey: ["maintenances"] }))}
+                            >
+                              Cancelar
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+
 
                       <Button variant="ghost" size="icon" aria-label="Editar" onClick={() => setEditing(row)}>
                         <Pencil className="size-4" />

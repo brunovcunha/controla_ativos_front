@@ -73,7 +73,7 @@ export const resources: Record<ResourceKey, ResourceDef> = {
       { name: "purchaseDate", label: "Data de compra", type: "date" },
       { name: "locationId", label: "Localização", type: "ref", ref: "locations", refLabel: "name", inTable: true },
       { name: "assetValue", label: "Valor (R$)", type: "number", currency: true, inTable: true },
-      { name: "notes", label: "Observações", type: "textarea", currency: true, inTable: true }
+      { name: "notes", label: "Observações", type: "textarea", inTable: true }
     ],
   },
   departments: {
@@ -167,15 +167,18 @@ export const resources: Record<ResourceKey, ResourceDef> = {
     singular: "Manutenção",
     description: "Ordens de serviço preventivas e corretivas.",
     searchKeys: ["description", "provider"],
+    updateMethod: "PATCH",
     fields: [
       { name: "assetId", label: "Ativo", type: "ref", ref: "assets", refLabel: "name", required: true, inTable: true },
-      { name: "type", label: "Tipo", type: "select", required: true, inTable: true, badge: true, options: opt(["PREVENTIVA", "Preventiva"], ["CORRETIVA", "Corretiva"]) },
+      { name: "type", label: "Tipo", type: "select", required: true, inTable: true, badge: true, options: opt(["PREVENTIVE", "Preventiva"], ["CORRECTIVE", "Corretiva"]) },
+      { name: "title", label: "Título", type: "text", required: true, inTable: true },
+      { name: "technicianId", label: "Operador", type: "ref", ref: "employees", required: true, inTable: true },
       { name: "description", label: "Descrição", type: "textarea", required: true, inTable: true },
-      { name: "provider", label: "Fornecedor", type: "text" },
-      { name: "startDate", label: "Início", type: "date", inTable: true },
-      { name: "endDate", label: "Fim", type: "date" },
+      { name: "scheduledDate", label: "Agendamento", type: "date", inTable: true },
+      { name: "startedAt", label: "Início da Manutenção", type: "datetime-local", hideInForm: true, inTable: true},
+      { name: "completedAt", label: "Fim da Manutenção", type: "datetime-local", hideInForm: true, inTable: true},
       { name: "cost", label: "Custo (R$)", type: "number", currency: true, inTable: true },
-      { name: "status", label: "Status", type: "select", required: true, inTable: true, badge: true, options: opt(["ABERTA", "Aberta"], ["EM_ANDAMENTO", "Em andamento"], ["CONCLUIDA", "Concluída"]) },
+      { name: "status", label: "Status", type: "select", required: false, inTable: true, badge: true, options: opt(["SCHEDULED", "Agendada"], ["IN_PROGRESS", "Em andamento"], ["COMPLETED", "Concluída"], ["CANCELLED", "Cancelada"]), hideInForm: true },
     ],
   },
 };

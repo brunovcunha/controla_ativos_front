@@ -1,6 +1,7 @@
 import { resources, type ResourceKey } from "./resources";
 import { seed } from "./seed";
 
+
 export type Row = Record<string, unknown> & { id: number | string };
 
 // Set VITE_API_URL (e.g. http://localhost:8080/api) to use the real backend.
@@ -73,6 +74,12 @@ function readMock(k: ResourceKey): Row[] {
 const writeMock = (k: ResourceKey, rows: Row[]) => localStorage.setItem(storeKey(k), JSON.stringify(rows));
 
 export const api = {
+  async listByStatus(k: ResourceKey, status: string): Promise<Row[]> {
+    if (usingMock) {
+      return readMock(k).filter((r) => String(r["status"]) === status);
+    }
+    return http<Row[]>(`${resources[k].endpoint}/${status}/status`);
+  },
   async list(k: ResourceKey): Promise<Row[]> {
     if (usingMock) return readMock(k);
     return http<Row[]>(resources[k].endpoint);
@@ -142,4 +149,36 @@ export const api = {
     }
     await http<void>(`loans/${id}/cancel`, { method: "POST" });
   },
+
+// Métodos para requisições d emanutenções
+  async starMaintenance(id: Row["id"]): Promise<void> {
+    if (usingMock) {
+      const rows = readMock("maintenances").map((r) =>
+        r.id === id ? { ...r, status: "CANCELLED" } : r
+      );
+      writeMock("maintenances", rows);
+      return;
+    }
+    await http<void>(`maintenances/${id}/start`, { method: "PATCH" });
+  },
+    async maintenanceComplete(id: Row["id"]): Promise<void> {
+    if (usingMock) {
+      const rows = readMock("maintenances").map((r) =>
+        r.id === id ? { ...r, status: "COMPLETE", returnedAt: new Date().toISOString() } : r
+      );
+      writeMock("maintenances", rows);
+      return;
+    }
+    await http<void>(`maintenances/${id}/complete`, { method: "PATCH" });
+  },
+   async mainteNanceCancel(id: Row["id"]): Promise<void> {
+    if (usingMock) {
+      const rows = readMock("maintenances").map((r) =>
+        r.id === id ? { ...r, status: "CANCELLED" } : r
+      );
+      writeMock("maintenances", rows);
+      return;
+    }
+    await http<void>(`maintenances/${id}/cancel`, { method: "PATCH" });
+  }
 };
