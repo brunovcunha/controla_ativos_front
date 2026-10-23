@@ -56,6 +56,9 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
   const [deleting, setDeleting] = useState<Row | null>(null);
   const [page, setPage] = useState(1);
 
+  const [viewing, setViewing] = useState<Row | null>(null);
+
+
   const pageSize = 10;
 
   const cols = def.fields.filter((f) => f.inTable);
@@ -181,7 +184,10 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
 
 
               return (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className="cursor-pointer"
+                  onDoubleClick={() => setViewing(row)}>
                   {cols.map((c) => (
                     <TableCell key={c.name} className={c.mono ? "font-mono text-xs" : "max-w-xs truncate"}>
                       {c.badge ? <StatusBadge value={String(row[c.name])} label={display(c, row)} /> : display(c, row)}
@@ -317,6 +323,176 @@ export function ResourcePage({ resource }: { resource: ResourceKey }) {
           </div>
         </div>
       </div>
+
+      {/* CARD PARA VISUALIZAÇÃO DE CADASTROS */}
+      {/* CARD PARA VISUALIZAÇÃO DE CADASTROS */}
+      <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{def.singular}</DialogTitle>
+          </DialogHeader>
+
+          {viewing && (() => {
+            const status = String(viewing["status"] ?? "");
+
+            // Validações para loans (Empréstimos)
+            const canPickup = status === "SCHEDULED" || status === "PENDING_PICKUP";
+            const canReturn = status === "IN_USE";
+            const canCancel = status === "SCHEDULED" || status === "PENDING_PICKUP";
+
+            // Validações para maintenances (Manutenções)
+            const canStart = status === "SCHEDULED";
+            const canComplete = status === "IN_PROGRESS";
+            const canCancelMaintenance = status === "SCHEDULED" || status === "IN_PROGRESS";
+
+            return (
+              <>
+                <div className="grid gap-x-6 gap-y-4 py-2 sm:grid-cols-2">
+                  {def.fields.map((f) => {
+                    const v = viewing[f.name];
+                    const empty = v == null || v === "";
+                    return (
+                      <div key={f.name} className={f.type === "textarea" ? "sm:col-span-2" : ""}>
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          {f.label}
+                        </p>
+                        <div className="mt-1 text-sm">
+                          {empty ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : f.badge ? (
+                            <StatusBadge value={String(v)} label={display(f, viewing)} />
+                          ) : f.type === "textarea" ? (
+                            <p className="whitespace-pre-wrap break-words">{String(v)}</p>
+                          ) : (
+                            <span className={f.mono ? "font-mono text-xs" : ""}>{display(f, viewing)}</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <DialogFooter className="flex flex-wrap items-center justify-between gap-2 sm:justify-between">
+                  <Button variant="outline" onClick={() => setViewing(null)}>
+                    Fechar
+                  </Button>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {/* AÇÕES DE EMPRÉSTIMOS */}
+                    {resource === "loans" && (
+                      <>
+                        {canPickup && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              api.loanPickup(viewing.id).then(() => {
+                                qc.invalidateQueries({ queryKey: ["loans"] });
+                                setViewing(null);
+                              });
+                            }}
+                          >
+                            Retirar
+                          </Button>
+                        )}
+                        {canReturn && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => {
+                              api.loanReturn(viewing.id).then(() => {
+                                qc.invalidateQueries({ queryKey: ["loans"] });
+                                setViewing(null);
+                              });
+                            }}
+                          >
+                            Devolver
+                          </Button>
+                        )}
+                        {canCancel && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => {
+                              api.loanCancel(viewing.id).then(() => {
+                                qc.invalidateQueries({ queryKey: ["loans"] });
+                                setViewing(null);
+                              });
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                        )}
+                      </>
+                    )}
+
+                    {/* AÇÕES DE MANUTENÇÃO */}
+                    {resource === "maintenances" && (
+                      <>
+                        {canStart && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              api.starMaintenance(viewing.id).then(() => {
+                                qc.invalidateQueries({ queryKey: ["maintenances"] });
+                                setViewing(null);
+                              });
+                            }}
+                          >
+                            Iniciar
+                          </Button>
+                        )}
+                        {canComplete && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => {
+                              api.maintenanceComplete(viewing.id).then(() => {
+                                qc.invalidateQueries({ queryKey: ["maintenances"] });
+                                setViewing(null);
+                              });
+                            }}
+                          >
+                            Finalizar
+                          </Button>
+                        )}
+                        {canCancelMaintenance && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => {
+                              api.mainteNanceCancel(viewing.id).then(() => {
+                                qc.invalidateQueries({ queryKey: ["maintenances"] });
+                                setViewing(null);
+                              });
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                        )}
+                      </>
+                    )}
+
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        const row = viewing;
+                        setViewing(null);
+                        if (row) setEditing(row);
+                      }}
+                    >
+                      <Pencil className="size-4" /> Editar
+                    </Button>
+                  </div>
+                </DialogFooter>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editing !== undefined} onOpenChange={(o) => !o && setEditing(undefined)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
